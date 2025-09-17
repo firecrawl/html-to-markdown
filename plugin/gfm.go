@@ -2,7 +2,7 @@
 // part of Commonmark like GitHub Flavored Markdown.
 package plugin
 
-import md "github.com/tomkosm/html-to-markdown"
+import md "github.com/firecrawl/html-to-markdown"
 
 // GitHubFlavored is GitHub's Flavored Markdown
 func GitHubFlavored() md.Plugin {

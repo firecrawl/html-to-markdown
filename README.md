@@ -1,9 +1,9 @@
 # html-to-markdown
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/tomkosm/html-to-markdown)](https://goreportcard.com/report/github.com/tomkosm/html-to-markdown)
-[![codecov](https://codecov.io/gh/tomkosm/html-to-markdown/branch/master/graph/badge.svg)](https://codecov.io/gh/tomkosm/html-to-markdown)
-![GitHub MIT License](https://img.shields.io/github/license/tomkosm/html-to-markdown)
-[![GoDoc](https://godoc.org/github.com/tomkosm/html-to-markdown?status.png)](http://godoc.org/github.com/tomkosm/html-to-markdown)
+[![Go Report Card](https://goreportcard.com/badge/github.com/firecrawl/html-to-markdown)](https://goreportcard.com/report/github.com/firecrawl/html-to-markdown)
+[![codecov](https://codecov.io/gh/firecrawl/html-to-markdown/branch/master/graph/badge.svg)](https://codecov.io/gh/firecrawl/html-to-markdown)
+![GitHub MIT License](https://img.shields.io/github/license/firecrawl/html-to-markdown)
+[![GoDoc](https://godoc.org/github.com/firecrawl/html-to-markdown?status.png)](http://godoc.org/github.com/firecrawl/html-to-markdown)
 
 ![Gopher, the mascot of Golang, is wearing a party hat and holding a balloon. Next to the Gopher is a machine that converts characters associated with HTML to characters associated with Markdown.](/logo_five_years.png)
 
@@ -12,7 +12,7 @@ Convert HTML into Markdown with Go. It is using an [HTML Parser](https://github.
 ## Installation
 
 ```
-go get github.com/tomkosm/html-to-markdown
+go get github.com/firecrawl/html-to-markdown
 ```
 
 ## Usage
@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"log"
 
-	md "github.com/tomkosm/html-to-markdown"
+	md "github.com/firecrawl/html-to-markdown"
 )
 
 converter := md.NewConverter("", true, nil)
@@ -60,7 +60,7 @@ opt := &md.Options{
 converter := md.NewConverter("", true, opt)
 ```
 
-For all the possible options look at [godocs](https://godoc.org/github.com/tomkosm/html-to-markdown/#Options) and for a example look at the [example](/examples/options/main.go).
+For all the possible options look at [godocs](https://godoc.org/github.com/firecrawl/html-to-markdown/#Options) and for a example look at the [example](/examples/options/main.go).
 
 ## Adding Rules
 
@@ -88,7 +88,7 @@ For more information have a look at the example [add_rules](/examples/add_rules/
 If you want plugins (github flavored markdown like striketrough, tables, ...) you can pass it to `Use`.
 
 ```go
-import "github.com/tomkosm/html-to-markdown/plugin"
+import "github.com/firecrawl/html-to-markdown/plugin"
 
 // Use the `GitHubFlavored` plugin from the `plugin` package.
 converter.Use(plugin.GitHubFlavored())
@@ -105,7 +105,7 @@ For more information have a look at the example [github_flavored](/examples/gith
 
 ---
 
-These are the plugins located in the [plugin folder](/plugin) which you can use by importing "github.com/tomkosm/html-to-markdown/plugin".
+These are the plugins located in the [plugin folder](/plugin) which you can use by importing "github.com/firecrawl/html-to-markdown/plugin".
 
 | Name                  | Description                                                                                 |
 | --------------------- | ------------------------------------------------------------------------------------------- |
@@ -143,7 +143,7 @@ This library does NOT sanitize untrusted content. Use an HTML sanitizer such as 
 
 ## Other Methods
 
-[Godoc](https://godoc.org/github.com/tomkosm/html-to-markdown)
+[Godoc](https://godoc.org/github.com/firecrawl/html-to-markdown)
 
 ### `func (c *Converter) Keep(tags ...string) *Converter`
 

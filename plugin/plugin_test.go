@@ -3,7 +3,7 @@ package plugin
 import (
 	"testing"
 
-	md "github.com/tomkosm/html-to-markdown"
+	md "github.com/firecrawl/html-to-markdown"
 )
 
 func TestConfluenceCodeBlock(t *testing.T) {

@@ -11,7 +11,7 @@ import (
 
 	"net/url"
 
-	"github.com/tomkosm/html-to-markdown/escape"
+	"github.com/firecrawl/html-to-markdown/escape"
 	"github.com/PuerkitoBio/goquery"
 )
 
