@@ -152,16 +152,17 @@ type AdvancedResult struct {
 }
 
 // Rule to convert certain html tags to markdown.
-//  md.Rule{
-//    Filter: []string{"del", "s", "strike"},
-//    Replacement: func(content string, selec *goquery.Selection, opt *md.Options) *string {
-//      // You need to return a pointer to a string (md.String is just a helper function).
-//      // If you return nil the next function for that html element
-//      // will be picked. For example you could only convert an element
-//      // if it has a certain class name and fallback if not.
-//      return md.String("~" + content + "~")
-//    },
-//  }
+//
+//	md.Rule{
+//	  Filter: []string{"del", "s", "strike"},
+//	  Replacement: func(content string, selec *goquery.Selection, opt *md.Options) *string {
+//	    // You need to return a pointer to a string (md.String is just a helper function).
+//	    // If you return nil the next function for that html element
+//	    // will be picked. For example you could only convert an element
+//	    // if it has a certain class name and fallback if not.
+//	    return md.String("~" + content + "~")
+//	  },
+//	}
 type Rule struct {
 	Filter              []string
 	Replacement         func(content string, selec *goquery.Selection, options *Options) *string
@@ -175,39 +176,77 @@ var newlinesR = regexp.MustCompile(`\n+`)
 var tabR = regexp.MustCompile(`\t+`)
 var indentR = regexp.MustCompile(`(?m)\n`)
 
-func (conv *Converter) selecToMD(domain string, selec *goquery.Selection, opt *Options) AdvancedResult {
+func (conv *Converter) applyRules(nodeName, markdown string, selec *goquery.Selection, opt *Options) (AdvancedResult, bool) {
+	rules := conv.getRuleFuncs(nodeName)
+	for i := len(rules) - 1; i >= 0; i-- {
+		res, skip := rules[i](markdown, selec, opt)
+		if !skip {
+			return res, false
+		}
+	}
+	return AdvancedResult{Markdown: markdown}, true
+}
+
+func appendBlock(current, addition string) string {
+	if addition == "" {
+		return current
+	}
+	if current != "" && !strings.HasSuffix(current, "\n") {
+		current += "\n"
+	}
+	current += addition
+	if !strings.HasSuffix(addition, "\n") {
+		current += "\n"
+	}
+	return current
+}
+
+func (result *AdvancedResult) accumulate(other AdvancedResult) {
+	result.Header = appendBlock(result.Header, other.Header)
+	result.Footer = appendBlock(result.Footer, other.Footer)
+}
+
+func (conv *Converter) selecToMD(selec *goquery.Selection, opt *Options) AdvancedResult {
 	var result AdvancedResult
-
 	var builder strings.Builder
+
 	selec.Contents().Each(func(i int, s *goquery.Selection) {
-		name := goquery.NodeName(s)
-		rules := conv.getRuleFuncs(name)
+		content := conv.selecToMD(s, opt)
+		result.accumulate(content)
 
-		for i := len(rules) - 1; i >= 0; i-- {
-			rule := rules[i]
+		ruleResult, useOriginal := conv.applyRules(goquery.NodeName(s), content.Markdown, s, opt)
+		result.accumulate(ruleResult)
 
-			content := conv.selecToMD(domain, s, opt)
-			if content.Header != "" {
-				result.Header += content.Header
-			}
-			if content.Footer != "" {
-				result.Footer += content.Footer
-			}
-
-			res, skip := rule(content.Markdown, s, opt)
-			if res.Header != "" {
-				result.Header += res.Header + "\n"
-			}
-			if res.Footer != "" {
-				result.Footer += res.Footer + "\n"
-			}
-
-			if !skip {
-				builder.WriteString(res.Markdown)
-				return
-			}
+		if !useOriginal {
+			builder.WriteString(ruleResult.Markdown)
+		} else {
+			builder.WriteString(content.Markdown)
 		}
 	})
+
 	result.Markdown = builder.String()
+	return result
+}
+
+func (conv *Converter) applyRulesToSelection(selec *goquery.Selection, opt *Options) AdvancedResult {
+	if selec == nil || len(selec.Nodes) == 0 {
+		return AdvancedResult{}
+	}
+
+	content := conv.selecToMD(selec, opt)
+	result := AdvancedResult{
+		Header: content.Header,
+		Footer: content.Footer,
+	}
+
+	ruleResult, useOriginal := conv.applyRules(goquery.NodeName(selec), content.Markdown, selec, opt)
+	result.accumulate(ruleResult)
+
+	if !useOriginal {
+		result.Markdown = ruleResult.Markdown
+	} else {
+		result.Markdown = content.Markdown
+	}
+
 	return result
 }

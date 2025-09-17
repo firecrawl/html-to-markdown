@@ -289,43 +289,44 @@ func findMax(a []int) (max int) {
 	return max
 }
 
-func getCodeWithoutTags(startNode *html.Node) []byte {
-	var buf bytes.Buffer
-
-	var f func(*html.Node)
-	f = func(n *html.Node) {
-		if n.Type == html.ElementNode && (n.Data == "style" || n.Data == "script" || n.Data == "textarea") {
-			return
-		}
-		if n.Type == html.ElementNode && (n.Data == "br" || n.Data == "div") {
-			buf.WriteString("\n")
-		}
-
-		if n.Type == html.TextNode {
-			buf.WriteString(n.Data)
-			return
-		}
-
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			f(c)
-		}
-	}
-
-	f(startNode)
-
-	return buf.Bytes()
-}
-
-// getCodeContent gets the content of pre/code and unescapes the encoded characters.
-// Returns "" if there is an error.
-func getCodeContent(selec *goquery.Selection) string {
-	if len(selec.Nodes) == 0 {
+func (conv *Converter) inlineCodeContent(selec *goquery.Selection, opt *Options) string {
+	if selec == nil || len(selec.Nodes) == 0 {
 		return ""
 	}
 
-	code := getCodeWithoutTags(selec.Nodes[0])
+	var builder strings.Builder
 
-	return string(code)
+	var walk func(*html.Node)
+	walk = func(n *html.Node) {
+		switch n.Type {
+		case html.TextNode:
+			builder.WriteString(n.Data)
+			return
+		case html.ElementNode:
+			switch n.Data {
+			case "style", "script", "textarea":
+				return
+			case "br", "div":
+				builder.WriteString("\n")
+				return
+			case "a":
+				selection := goquery.NewDocumentFromNode(n).Selection
+				res := conv.applyRulesToSelection(selection, opt)
+				builder.WriteString(res.Markdown)
+				return
+			}
+		}
+
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			walk(c)
+		}
+	}
+
+	for _, node := range selec.Nodes {
+		walk(node)
+	}
+
+	return builder.String()
 }
 
 // delimiterForEveryLine puts the delimiter not just at the start and end of the string
