@@ -1,16 +1,18 @@
 // Package md converts html to markdown.
 //
-//  converter := md.NewConverter("", true, nil)
+//	converter := md.NewConverter("", true, nil)
 //
-//  html = `<strong>Important</strong>`
+//	html = `<strong>Important</strong>`
 //
-//  markdown, err := converter.ConvertString(html)
-//  if err != nil {
-//    log.Fatal(err)
-//  }
-//  fmt.Println("md ->", markdown)
+//	markdown, err := converter.ConvertString(html)
+//	if err != nil {
+//	  log.Fatal(err)
+//	}
+//	fmt.Println("md ->", markdown)
+//
 // Or if you are already using goquery:
-//  markdown, err := converter.Convert(selec)
+//
+//	markdown, err := converter.Convert(selec)
 package md
 
 import (
@@ -101,9 +103,9 @@ var (
 )
 
 // NewConverter initializes a new converter and holds all the rules.
-// - `domain` is used for links and images to convert relative urls ("/image.png") to absolute urls.
-// - CommonMark is the default set of rules. Set enableCommonmark to false if you want
-//   to customize everything using AddRules and DONT want to fallback to default rules.
+//   - `domain` is used for links and images to convert relative urls ("/image.png") to absolute urls.
+//   - CommonMark is the default set of rules. Set enableCommonmark to false if you want
+//     to customize everything using AddRules and DONT want to fallback to default rules.
 func NewConverter(domain string, enableCommonmark bool, options *Options) *Converter {
 	conv := &Converter{
 		domain: domain,
@@ -366,7 +368,6 @@ var multipleNewLinesRegex = regexp.MustCompile(`[\n]{2,}`)
 // If you have a goquery document just pass in doc.Selection.
 func (conv *Converter) Convert(selec *goquery.Selection) string {
 	conv.mutex.RLock()
-	domain := conv.domain
 	options := conv.options
 	l := len(conv.rules)
 	if l == 0 {
@@ -381,7 +382,7 @@ func (conv *Converter) Convert(selec *goquery.Selection) string {
 		hook(selec)
 	}
 
-	res := conv.selecToMD(domain, selec, &options)
+	res := conv.selecToMD(selec, &options)
 	markdown := res.Markdown
 
 	if res.Header != "" {

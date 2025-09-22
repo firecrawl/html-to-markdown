@@ -377,6 +377,48 @@ func TestNewConverter_ValidateOptions_All(t *testing.T) {
 
 }
 
+func TestCodeKeepsLinks(t *testing.T) {
+	tests := []struct {
+		name     string
+		options  *Options
+		input    string
+		expected string
+	}{
+		{
+			name:     "inlined link",
+			input:    `<code>hey there <a href="https://google.com">here's a link</a></code>`,
+			expected: "`hey there [here's a link](https://google.com)`",
+		},
+		{
+			name: "referenced link",
+			options: &Options{
+				LinkStyle: "referenced",
+			},
+			input:    `<code>hey there <a href="https://google.com">here's a link</a></code>`,
+			expected: "`hey there [here's a link][1]`\n\n[1]: https://google.com",
+		},
+		{
+			name:     "ignores other markup",
+			input:    `<code><em>italic</em> and <a href="https://example.com">link</a></code>`,
+			expected: "`italic and [link](https://example.com)`",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			conv := NewConverter("", true, tt.options)
+			got, err := conv.ConvertString(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if got != tt.expected {
+				t.Fatalf("markdown mismatch\nexpected: %q\nactual:   %q", tt.expected, got)
+			}
+		})
+	}
+}
+
 func BenchmarkFromString(b *testing.B) {
 	converter := NewConverter("www.google.com", true, nil)
 
