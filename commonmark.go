@@ -100,9 +100,9 @@ func (c *Converter) InitializeCommonMarkRules() []Rule {
 				// if its inside a list, trim the spaces to not mess up the indentation
 				parent := selec.Parent()
 				next := selec.Next()
-				if IndexWithText(selec) == 0 &&
-					(parent.Is("li") || parent.Is("ol") || parent.Is("ul")) &&
-					(next.Is("ul") || next.Is("ol")) {
+				if (parent.Is("li") || parent.Is("ol") || parent.Is("ul")) &&
+					(next.Is("ul") || next.Is("ol")) &&
+					isFirstNonEmptyListTextNode(selec) {
 					// trim only spaces and not new lines
 					text = strings.Trim(text, ` `)
 				}
