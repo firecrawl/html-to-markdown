@@ -524,11 +524,24 @@ func isListItem(opt *Options, line string) bool {
 	return false
 }
 
-// IndexWithText is similar to goquery's Index function but
-// returns the index of the current element while
-// NOT counting the empty elements beforehand.
-func IndexWithText(s *goquery.Selection) int {
-	return s.PrevAll().FilterFunction(func(i int, s *goquery.Selection) bool {
-		return strings.TrimSpace(s.Text()) != ""
-	}).Length()
+// isFirstNonEmptyListTextNode reports whether the given selection (expected to be a `#text` node)
+// is the first non-empty text sibling.
+func isFirstNonEmptyListTextNode(s *goquery.Selection) bool {
+	if s == nil || len(s.Nodes) == 0 {
+		return false
+	}
+	node := s.Nodes[0]
+	if node.Type != html.TextNode {
+		return false
+	}
+
+	for sib := node.PrevSibling; sib != nil; sib = sib.PrevSibling {
+		if sib.Type != html.TextNode {
+			continue
+		}
+		if strings.TrimSpace(sib.Data) != "" {
+			return false
+		}
+	}
+	return true
 }
