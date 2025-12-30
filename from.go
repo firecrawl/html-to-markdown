@@ -100,6 +100,10 @@ func validateOptions(opt Options) error {
 
 var (
 	attrListPrefix = "data-converter-list-prefix"
+	// Cached list indentation metadata, computed once in a pre-pass over the DOM.
+	// This avoids extremely expensive goquery traversal per <li> on large documents.
+	attrListPrefixCount       = "data-converter-prefix-count"
+	attrListPrevPrefixCounts  = "data-converter-prev-prefix-counts"
 )
 
 // NewConverter initializes a new converter and holds all the rules.
@@ -118,13 +122,6 @@ func NewConverter(domain string, enableCommonmark bool, options *Options) *Conve
 		selec.Find("a[href]").Each(func(i int, s *goquery.Selection) {
 			// TODO: don't hardcode "data-index" and rename it to avoid accidental conflicts
 			s.SetAttr("data-index", strconv.Itoa(i+1))
-		})
-	})
-	conv.before = append(conv.before, func(selec *goquery.Selection) {
-		selec.Find("li").Each(func(i int, s *goquery.Selection) {
-			prefix := getListPrefix(options, s)
-
-			s.SetAttr(attrListPrefix, prefix)
 		})
 	})
 	conv.after = append(conv.after, func(markdown string) string {
@@ -381,6 +378,10 @@ func (conv *Converter) Convert(selec *goquery.Selection) string {
 	for _, hook := range before {
 		hook(selec)
 	}
+
+	// Precompute list indentation metadata *after* before hooks (so any DOM mutations
+	// performed by user hooks are reflected).
+	annotateListIndentation(selec, &options)
 
 	res := conv.selecToMD(selec, &options)
 	markdown := res.Markdown

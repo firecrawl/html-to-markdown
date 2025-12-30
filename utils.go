@@ -380,68 +380,6 @@ func getListStart(parent *goquery.Selection) int {
 	return num
 }
 
-// getListPrefix returns the appropriate prefix for the list item.
-// For example "- ", "* ", "1. ", "01. ", ...
-func getListPrefix(opt *Options, s *goquery.Selection) string {
-	if isWrapperListItem(s) {
-		return ""
-	}
-
-	parent := s.Parent()
-	if parent.Is("ul") {
-		return opt.BulletListMarker + " "
-	} else if parent.Is("ol") {
-		start := getListStart(parent)
-		currentIndex := start + s.Index()
-
-		lastIndex := parent.Children().Last().Index() + 1
-		maxLength := len(strconv.Itoa(lastIndex))
-
-		// pad the numbers so that all prefix numbers in the list take up the same space
-		// `%02d.` -> "01. "
-		format := `%0` + strconv.Itoa(maxLength) + `d. `
-		return fmt.Sprintf(format, currentIndex)
-	}
-	// If the HTML is malformed and the list element isn't in a ul or ol, return no prefix
-	return ""
-}
-
-// countListParents counts how much space is reserved for the prefixes at all the parent lists.
-// This is useful to calculate the correct level of indentation for nested lists.
-func countListParents(opt *Options, selec *goquery.Selection) (int, int) {
-	var values []int
-	for n := selec.Parent(); n != nil; n = n.Parent() {
-		if n.Is("li") {
-			continue
-		}
-		if !n.Is("ul") && !n.Is("ol") {
-			break
-		}
-
-		prefix := n.Children().First().AttrOr(attrListPrefix, "")
-
-		values = append(values, len(prefix))
-	}
-
-	// how many spaces are reserved for the prefixes of my siblings
-	var prefixCount int
-
-	// how many spaces are reserved in total for all of the other
-	// list parents up the tree
-	var previousPrefixCounts int
-
-	for i, val := range values {
-		if i == 0 {
-			prefixCount = val
-			continue
-		}
-
-		previousPrefixCounts += val
-	}
-
-	return prefixCount, previousPrefixCounts
-}
-
 // IndentMultiLineListItem makes sure that multiline list items
 // are properly indented.
 func IndentMultiLineListItem(opt *Options, text string, spaces int) string {
@@ -544,4 +482,219 @@ func isFirstNonEmptyListTextNode(s *goquery.Selection) bool {
 		}
 	}
 	return true
+}
+
+// annotateListIndentation computes list-related attributes for all <li> nodes in the subtree.
+//
+// It sets:
+// - `attrListPrefix` (already used today)
+// - `attrListPrefixCount`
+// - `attrListPrevPrefixCounts`
+//
+// This is a performance-critical pre-pass: it avoids per-<li> goquery traversal (Children/PrevAll/Index)
+// which can explode to hundreds of GB of allocations on very large documents.
+func annotateListIndentation(root *goquery.Selection, opt *Options) {
+	if root == nil || len(root.Nodes) == 0 || opt == nil {
+		return
+	}
+
+	type listLevel struct {
+		node      *html.Node
+		prefixLen int
+		prevSum   int
+		start     int
+		maxLen    int
+	}
+
+	getAttr := func(n *html.Node, key string) (string, bool) {
+		for _, a := range n.Attr {
+			if a.Key == key {
+				return a.Val, true
+			}
+		}
+		return "", false
+	}
+	setAttr := func(n *html.Node, key, val string) {
+		for i := range n.Attr {
+			if n.Attr[i].Key == key {
+				n.Attr[i].Val = val
+				return
+			}
+		}
+		n.Attr = append(n.Attr, html.Attribute{Key: key, Val: val})
+	}
+
+	isElement := func(n *html.Node, name string) bool {
+		return n != nil && n.Type == html.ElementNode && strings.EqualFold(n.Data, name)
+	}
+
+	// Matches current wrapper logic:
+	// - parent is a list (handled by caller)
+	// - li has a direct ul/ol child
+	// - all other direct children (excluding ul/ol) have no text content
+	isWrapperLI := func(li *html.Node) bool {
+		if li == nil || li.Type != html.ElementNode || !strings.EqualFold(li.Data, "li") {
+			return false
+		}
+
+		hasDirectListChild := false
+		hasOwnText := false
+
+		for c := li.FirstChild; c != nil; c = c.NextSibling {
+			if isElement(c, "ul") || isElement(c, "ol") {
+				hasDirectListChild = true
+				continue
+			}
+
+			switch c.Type {
+			case html.TextNode:
+				if strings.TrimSpace(c.Data) != "" {
+					hasOwnText = true
+				}
+			case html.ElementNode:
+				// mirror goquery's `.Text()` on direct children: text from descendants counts as "own".
+				if strings.TrimSpace(CollectText(c)) != "" {
+					hasOwnText = true
+				}
+			}
+
+			if hasOwnText {
+				// early exit
+				break
+			}
+		}
+
+		return hasDirectListChild && !hasOwnText
+	}
+
+	parseListStart := func(ol *html.Node) int {
+		if ol == nil {
+			return 1
+		}
+		val, ok := getAttr(ol, "start")
+		if !ok || strings.TrimSpace(val) == "" {
+			return 1
+		}
+		n, err := strconv.Atoi(strings.TrimSpace(val))
+		if err != nil || n < 0 {
+			return 1
+		}
+		return n
+	}
+
+	var stack []listLevel
+
+	var walk func(n *html.Node)
+	walk = func(n *html.Node) {
+		if n == nil {
+			return
+		}
+
+		if n.Type == html.ElementNode && (strings.EqualFold(n.Data, "ul") || strings.EqualFold(n.Data, "ol")) {
+			// Pass 1: count element children and find first LI element child index.
+			elemCount := 0
+			firstLIIndex := -1
+			var firstLINode *html.Node
+
+			for c := n.FirstChild; c != nil; c = c.NextSibling {
+				if c.Type != html.ElementNode {
+					continue
+				}
+				if firstLIIndex == -1 && strings.EqualFold(c.Data, "li") {
+					firstLIIndex = elemCount
+					firstLINode = c
+				}
+				elemCount++
+			}
+
+			lastIndex := elemCount
+			maxLen := len(strconv.Itoa(lastIndex))
+			start := 1
+			if strings.EqualFold(n.Data, "ol") {
+				start = parseListStart(n)
+			}
+
+			// Determine reserved prefix length for this list level from the first <li>.
+			prefixLen := 0
+			if firstLINode != nil {
+				if !isWrapperLI(firstLINode) {
+					if strings.EqualFold(n.Data, "ul") {
+						prefixLen = len(opt.BulletListMarker + " ")
+					} else {
+						// `%0{maxLen}d. `
+						prefix := fmt.Sprintf("%0*d. ", maxLen, start+firstLIIndex)
+						prefixLen = len(prefix)
+					}
+				}
+			}
+
+			prevSum := 0
+			if len(stack) > 0 {
+				top := stack[len(stack)-1]
+				prevSum = top.prevSum + top.prefixLen
+			}
+			stack = append(stack, listLevel{
+				node:      n,
+				prefixLen: prefixLen,
+				prevSum:   prevSum,
+				start:     start,
+				maxLen:    maxLen,
+			})
+
+			// Pass 2: set attrs on direct <li> element children (only).
+			elemIndex := 0
+			for c := n.FirstChild; c != nil; c = c.NextSibling {
+				if c.Type != html.ElementNode {
+					continue
+				}
+
+				if strings.EqualFold(c.Data, "li") {
+					level := stack[len(stack)-1]
+
+					prefix := ""
+					if !isWrapperLI(c) {
+						if strings.EqualFold(n.Data, "ul") {
+							prefix = opt.BulletListMarker + " "
+						} else {
+							prefix = fmt.Sprintf("%0*d. ", level.maxLen, level.start+elemIndex)
+						}
+					}
+
+					setAttr(c, attrListPrefix, prefix)
+					setAttr(c, attrListPrefixCount, strconv.Itoa(level.prefixLen))
+					setAttr(c, attrListPrevPrefixCounts, strconv.Itoa(level.prevSum))
+				}
+
+				elemIndex++
+			}
+
+			// Recurse into children while the level is on the stack.
+			for c := n.FirstChild; c != nil; c = c.NextSibling {
+				walk(c)
+			}
+
+			// Pop this list level and return (so default traversal doesn't double-walk children).
+			stack = stack[:len(stack)-1]
+			return
+		}
+
+		// For malformed <li> (not a direct child of ul/ol), ensure attrs exist so the <li> rule won't
+		// fall back to expensive traversal.
+		if n.Type == html.ElementNode && strings.EqualFold(n.Data, "li") {
+			parent := n.Parent
+			if parent == nil || !(isElement(parent, "ul") || isElement(parent, "ol")) {
+				setAttr(n, attrListPrefix, "")
+				setAttr(n, attrListPrefixCount, "0")
+				setAttr(n, attrListPrevPrefixCounts, "0")
+			}
+		}
+
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			walk(c)
+		}
+	}
+
+	for _, n := range root.Nodes {
+		walk(n)
+	}
 }

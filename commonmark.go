@@ -65,7 +65,8 @@ func (c *Converter) InitializeCommonMarkRules() []Rule {
 
 				// `prefixCount` is not nessesarily the length of the empty string `prefix`
 				// but how much space is reserved for the prefixes of the siblings.
-				prefixCount, previousPrefixCounts := countListParents(opt, selec)
+				prefixCount, _ := strconv.Atoi(selec.AttrOr(attrListPrefixCount, "0"))
+				previousPrefixCounts, _ := strconv.Atoi(selec.AttrOr(attrListPrevPrefixCounts, "0"))
 
 				// if the prefix is not needed, balance it by adding the usual prefix spaces
 				if prefix == "" {
