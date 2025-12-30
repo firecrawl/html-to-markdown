@@ -380,68 +380,6 @@ func getListStart(parent *goquery.Selection) int {
 	return num
 }
 
-// getListPrefix returns the appropriate prefix for the list item.
-// For example "- ", "* ", "1. ", "01. ", ...
-func getListPrefix(opt *Options, s *goquery.Selection) string {
-	if isWrapperListItem(s) {
-		return ""
-	}
-
-	parent := s.Parent()
-	if parent.Is("ul") {
-		return opt.BulletListMarker + " "
-	} else if parent.Is("ol") {
-		start := getListStart(parent)
-		currentIndex := start + s.Index()
-
-		lastIndex := parent.Children().Last().Index() + 1
-		maxLength := len(strconv.Itoa(lastIndex))
-
-		// pad the numbers so that all prefix numbers in the list take up the same space
-		// `%02d.` -> "01. "
-		format := `%0` + strconv.Itoa(maxLength) + `d. `
-		return fmt.Sprintf(format, currentIndex)
-	}
-	// If the HTML is malformed and the list element isn't in a ul or ol, return no prefix
-	return ""
-}
-
-// countListParents counts how much space is reserved for the prefixes at all the parent lists.
-// This is useful to calculate the correct level of indentation for nested lists.
-func countListParents(opt *Options, selec *goquery.Selection) (int, int) {
-	var values []int
-	for n := selec.Parent(); n != nil; n = n.Parent() {
-		if n.Is("li") {
-			continue
-		}
-		if !n.Is("ul") && !n.Is("ol") {
-			break
-		}
-
-		prefix := n.Children().First().AttrOr(attrListPrefix, "")
-
-		values = append(values, len(prefix))
-	}
-
-	// how many spaces are reserved for the prefixes of my siblings
-	var prefixCount int
-
-	// how many spaces are reserved in total for all of the other
-	// list parents up the tree
-	var previousPrefixCounts int
-
-	for i, val := range values {
-		if i == 0 {
-			prefixCount = val
-			continue
-		}
-
-		previousPrefixCounts += val
-	}
-
-	return prefixCount, previousPrefixCounts
-}
-
 // IndentMultiLineListItem makes sure that multiline list items
 // are properly indented.
 func IndentMultiLineListItem(opt *Options, text string, spaces int) string {
