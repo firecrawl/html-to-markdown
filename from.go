@@ -100,6 +100,10 @@ func validateOptions(opt Options) error {
 
 var (
 	attrListPrefix = "data-converter-list-prefix"
+	// Cached list indentation metadata, computed once in a pre-pass over the DOM.
+	// This avoids extremely expensive goquery traversal per <li> on large documents.
+	attrListPrefixCount       = "data-converter-prefix-count"
+	attrListPrevPrefixCounts  = "data-converter-prev-prefix-counts"
 )
 
 // NewConverter initializes a new converter and holds all the rules.
@@ -121,11 +125,11 @@ func NewConverter(domain string, enableCommonmark bool, options *Options) *Conve
 		})
 	})
 	conv.before = append(conv.before, func(selec *goquery.Selection) {
-		selec.Find("li").Each(func(i int, s *goquery.Selection) {
-			prefix := getListPrefix(options, s)
+		conv.mutex.RLock()
+		opt := conv.options
+		conv.mutex.RUnlock()
 
-			s.SetAttr(attrListPrefix, prefix)
-		})
+		annotateListIndentation(selec, &opt)
 	})
 	conv.after = append(conv.after, func(markdown string) string {
 		markdown = strings.TrimSpace(markdown)
