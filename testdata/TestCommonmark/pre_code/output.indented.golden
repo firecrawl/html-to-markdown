@@ -81,7 +81,7 @@ The  tag is used to embed an image.
 
 ```
 
-
+[![](http://bla.bla/img/img.svg)](http://example.com#Blabla)
 
 ```
 
