@@ -124,13 +124,6 @@ func NewConverter(domain string, enableCommonmark bool, options *Options) *Conve
 			s.SetAttr("data-index", strconv.Itoa(i+1))
 		})
 	})
-	conv.before = append(conv.before, func(selec *goquery.Selection) {
-		conv.mutex.RLock()
-		opt := conv.options
-		conv.mutex.RUnlock()
-
-		annotateListIndentation(selec, &opt)
-	})
 	conv.after = append(conv.after, func(markdown string) string {
 		markdown = strings.TrimSpace(markdown)
 		markdown = multipleNewLinesRegex.ReplaceAllString(markdown, "\n\n")
@@ -385,6 +378,10 @@ func (conv *Converter) Convert(selec *goquery.Selection) string {
 	for _, hook := range before {
 		hook(selec)
 	}
+
+	// Precompute list indentation metadata *after* before hooks (so any DOM mutations
+	// performed by user hooks are reflected).
+	annotateListIndentation(selec, &options)
 
 	res := conv.selecToMD(selec, &options)
 	markdown := res.Markdown
