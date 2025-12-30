@@ -44,7 +44,7 @@ The  tag is used to embed an image.
 
 </code></pre>
 <pre><code>
-
+[![](http://bla.bla/img/img.svg)](http://example.com#Blabla)
 
 </code></pre>
 <p>We can do this like so:</p>

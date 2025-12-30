@@ -178,6 +178,10 @@ var indentR = regexp.MustCompile(`(?m)\n`)
 
 func (conv *Converter) applyRules(nodeName, markdown string, selec *goquery.Selection, opt *Options) (AdvancedResult, bool) {
 	rules := conv.getRuleFuncs(nodeName)
+	if rules == nil {
+		// Tag is in remove map, return empty result
+		return AdvancedResult{}, false
+	}
 	for i := len(rules) - 1; i >= 0; i-- {
 		res, skip := rules[i](markdown, selec, opt)
 		if !skip {
@@ -211,10 +215,22 @@ func (conv *Converter) selecToMD(selec *goquery.Selection, opt *Options) Advance
 	var builder strings.Builder
 
 	selec.Contents().Each(func(i int, s *goquery.Selection) {
+		nodeName := goquery.NodeName(s)
+
+		// Check if this element should be removed before processing
+		conv.mutex.RLock()
+		_, shouldRemove := conv.remove[nodeName]
+		conv.mutex.RUnlock()
+
+		if shouldRemove {
+			// Skip processing removed elements entirely
+			return
+		}
+
 		content := conv.selecToMD(s, opt)
 		result.accumulate(content)
 
-		ruleResult, useOriginal := conv.applyRules(goquery.NodeName(s), content.Markdown, s, opt)
+		ruleResult, useOriginal := conv.applyRules(nodeName, content.Markdown, s, opt)
 		result.accumulate(ruleResult)
 
 		if !useOriginal {
