@@ -6,6 +6,7 @@ import (
 
 	md "github.com/firecrawl/html-to-markdown"
 	"github.com/PuerkitoBio/goquery"
+	"golang.org/x/net/html"
 )
 
 // TableCompat is a compatibility plugin for environments where
@@ -145,17 +146,37 @@ func isHeadingRow(s *goquery.Selection) bool {
 
 	isTableOrBody := parent.Is("table") || isFirstTbody(parent)
 
+	// Check if every cell is a TH - break early if we find a non-TH
 	everyTH := true
-	s.Children().Each(func(i int, s *goquery.Selection) {
-		if goquery.NodeName(s) != "th" {
+	children := s.Children()
+	for i := 0; i < children.Length(); i++ {
+		if goquery.NodeName(children.Eq(i)) != "th" {
 			everyTH = false
+			break
 		}
-	})
-
-	if parent.Children().First().IsSelection(s) && isTableOrBody && everyTH {
-		return true
 	}
 
+	// Optimize: Check if this is the first child by comparing node pointers directly
+	// instead of creating a new Selection with parent.Children().First()
+	if !everyTH || !isTableOrBody {
+		return false
+	}
+
+	// Check if s is the first element child by comparing nodes directly
+	if len(s.Nodes) == 0 || len(parent.Nodes) == 0 {
+		return false
+	}
+	
+	parentNode := parent.Nodes[0]
+	sNode := s.Nodes[0]
+	
+	// Find the first element child (skip text nodes)
+	for child := parentNode.FirstChild; child != nil; child = child.NextSibling {
+		if child.Type == html.ElementNode {
+			return child == sNode
+		}
+	}
+	
 	return false
 }
 func isFirstTbody(s *goquery.Selection) bool {
@@ -175,15 +196,26 @@ func getCellContent(content string, s *goquery.Selection) string {
 		// nested tables not found
 		content = newLineRe.ReplaceAllString(content, "<br>")
 	}
-	index := -1
-	for i, node := range s.Parent().Children().Nodes {
-		if s.IsNodes(node) {
-			index = i
-			break
+	
+	// Optimize: Check if this is the first element child by comparing node pointers directly
+	// instead of linear search through all children
+	parent := s.Parent()
+	isFirst := false
+	if len(s.Nodes) > 0 && len(parent.Nodes) > 0 {
+		parentNode := parent.Nodes[0]
+		sNode := s.Nodes[0]
+		
+		// Find the first element child (skip text nodes)
+		for child := parentNode.FirstChild; child != nil; child = child.NextSibling {
+			if child.Type == html.ElementNode {
+				isFirst = (child == sNode)
+				break
+			}
 		}
 	}
+	
 	prefix := " "
-	if index == 0 {
+	if isFirst {
 		prefix = "| "
 	}
 	return prefix + content + " |"
