@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	md "github.com/firecrawl/html-to-markdown"
+	"github.com/firecrawl/html-to-markdown/plugin"
 )
 
 // TestPerfBigHTML_Smoke runs a large HTML file (random-ish content),
@@ -53,6 +54,34 @@ func TestPerfBigList_Smoke(t *testing.T) {
 	html := string(b)
 
 	conv := md.NewConverter("", true, nil)
+	out, err := conv.ConvertString(html)
+	if err != nil {
+		t.Fatalf("convert: %v", err)
+	}
+	if strings.TrimSpace(out) == "" {
+		t.Fatalf("expected non-empty markdown output")
+	}
+}
+
+// TestPerfBigTable_GitHubFlavored runs a large table with randomized data,
+// converts it once using GitHubFlavored plugin, and asserts we get non-empty output.
+//
+// This is intentionally a "smoke" perf test: no golden output, just "it renders".
+// Run it alone to track timings over time:
+//
+//	go test -run '^TestPerfBigTable_GitHubFlavored$' -count=1
+//
+// The input file is a large table with 5,000 rows and 12 columns.
+func TestPerfBigTable_GitHubFlavored(t *testing.T) {
+	p := filepath.Join("testdata", "Perf", "table.html")
+	b, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatalf("read %s: %v", p, err)
+	}
+	html := string(b)
+
+	conv := md.NewConverter("", true, nil)
+	conv.Use(plugin.GitHubFlavored())
 	out, err := conv.ConvertString(html)
 	if err != nil {
 		t.Fatalf("convert: %v", err)
