@@ -310,7 +310,7 @@ func (conv *Converter) inlineCodeContent(selec *goquery.Selection, opt *Options)
 				builder.WriteString("\n")
 				return
 			case "div":
-				// For div, we want to add a newline but still process children
+				// For div, we fall through to process children without returning early
 				// This is important for code blocks that wrap content in divs (e.g., syntax highlighters)
 			case "a":
 				selection := goquery.NewDocumentFromNode(n).Selection
