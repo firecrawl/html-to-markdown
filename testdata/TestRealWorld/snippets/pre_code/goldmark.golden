@@ -1,10 +1,10 @@
 <p>The MJML tool provides a CLI you can use to transform MJML into HTML:</p>
-<pre><code>
+<pre><code>bash$ mjml input.mjml -o output.html
 </code></pre>
 <p>Curiously, all text elements (paragraphs and headings) use the same tag,
 <code>&lt;mj-text&gt;</code>. You can
 create headings by applying cosmetic styles as inline attributes, like:</p>
-<pre><code>
+<pre><code>html&lt;mj-text  align=&quot;center&quot;  font-size=&quot;32px&quot;  font-weight=&quot;bold&quot;  color=&quot;#FF0000&quot;&gt;
 </code></pre>
 <hr>
 <pre><code>func HasPrefix(s, prefix [] [byte](http://example.com/builtin#byte)) [bool](http://example.com/builtin#bool)
