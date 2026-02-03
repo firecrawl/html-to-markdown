@@ -306,9 +306,12 @@ func (conv *Converter) inlineCodeContent(selec *goquery.Selection, opt *Options)
 			switch n.Data {
 			case "style", "script", "textarea":
 				return
-			case "br", "div":
+			case "br":
 				builder.WriteString("\n")
 				return
+			case "div":
+				// For div, we fall through to process children without returning early
+				// This is important for code blocks that wrap content in divs (e.g., syntax highlighters)
 			case "a":
 				selection := goquery.NewDocumentFromNode(n).Selection
 				res := conv.applyRulesToSelection(selection, opt)

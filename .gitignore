@@ -12,3 +12,7 @@
 *.out
 
 .DS_Store
+
+# Local test HTML files
+testhtml/
+*.prof
