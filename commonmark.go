@@ -16,6 +16,7 @@ import (
 )
 
 var multipleSpacesR = regexp.MustCompile(`  +`)
+var markdownImageR = regexp.MustCompile(`^!\[([^\]]*)\]\((.+?)(?:\s+"[^"]*")?\)$`)
 
 func (c *Converter) InitializeCommonMarkRules() []Rule {
 	var multipleSpacesR = regexp.MustCompile(`  +`)
@@ -268,6 +269,16 @@ func (c *Converter) InitializeCommonMarkRules() []Rule {
 				// a link without text won't de displayed anyway
 				if content == "" {
 					return AdvancedResult{}, true
+				}
+
+				// If the content is a markdown image whose src matches the link href,
+				// return just the image to avoid redundant nesting like [![](url)](url).
+				if m := markdownImageR.FindStringSubmatch(strings.TrimSpace(content)); m != nil {
+					if m[2] == href {
+						md := strings.TrimSpace(content)
+						md = AddSpaceIfNessesary(selec, md)
+						return AdvancedResult{Markdown: md}, false
+					}
 				}
 
 				if opt.LinkStyle == "inlined" {
