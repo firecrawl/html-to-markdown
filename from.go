@@ -27,6 +27,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
@@ -41,9 +42,20 @@ type BeforeHook func(selec *goquery.Selection)
 // Afterhook runs after the converter and can be used to transform the resulting markdown
 type Afterhook func(markdown string) string
 
+// converterSnapshot holds an immutable view of the converter's configuration.
+// It is rebuilt atomically on every mutation and read lock-free during conversion.
+type converterSnapshot struct {
+	rules   map[string][]ruleFunc
+	keep    map[string]struct{}
+	remove  map[string]struct{}
+	before  []BeforeHook
+	after   []Afterhook
+	options Options
+}
+
 // Converter is initialized by NewConverter.
 type Converter struct {
-	mutex  sync.RWMutex
+	mutex  sync.Mutex // protects mutations only
 	rules  map[string][]ruleFunc
 	keep   map[string]struct{}
 	remove map[string]struct{}
@@ -53,6 +65,39 @@ type Converter struct {
 
 	domain  string
 	options Options
+
+	snap atomic.Pointer[converterSnapshot]
+}
+
+// rebuildSnapshot creates a new immutable snapshot from current state.
+// Must be called while holding mutex.
+func (conv *Converter) rebuildSnapshot() {
+	rules := make(map[string][]ruleFunc, len(conv.rules))
+	for k, v := range conv.rules {
+		rules[k] = v
+	}
+	keep := make(map[string]struct{}, len(conv.keep))
+	for k, v := range conv.keep {
+		keep[k] = v
+	}
+	remove := make(map[string]struct{}, len(conv.remove))
+	for k, v := range conv.remove {
+		remove[k] = v
+	}
+	before := make([]BeforeHook, len(conv.before))
+	copy(before, conv.before)
+	after := make([]Afterhook, len(conv.after))
+	copy(after, conv.after)
+
+	snap := &converterSnapshot{
+		rules:   rules,
+		keep:    keep,
+		remove:  remove,
+		before:  before,
+		after:   after,
+		options: conv.options,
+	}
+	conv.snap.Store(snap)
 }
 
 func validate(val string, possible ...string) error {
@@ -190,18 +235,18 @@ func NewConverter(domain string, enableCommonmark bool, options *Options) *Conve
 		log.Println("markdown options is not valid:", err)
 	}
 
+	conv.rebuildSnapshot()
 	return conv
 }
 func (conv *Converter) getRuleFuncs(tag string) []ruleFunc {
-	conv.mutex.RLock()
-	defer conv.mutex.RUnlock()
+	snap := conv.snap.Load()
 
-	r, ok := conv.rules[tag]
+	r, ok := snap.rules[tag]
 	if !ok || len(r) == 0 {
-		if _, keep := conv.keep[tag]; keep {
+		if _, keep := snap.keep[tag]; keep {
 			return []ruleFunc{wrap(ruleKeep)}
 		}
-		if _, remove := conv.remove[tag]; remove {
+		if _, remove := snap.remove[tag]; remove {
 			return nil // TODO:
 		}
 
@@ -234,6 +279,7 @@ func (conv *Converter) Before(hooks ...BeforeHook) *Converter {
 		conv.before = append(conv.before, hook)
 	}
 
+	conv.rebuildSnapshot()
 	return conv
 }
 
@@ -249,6 +295,7 @@ func (conv *Converter) After(hooks ...Afterhook) *Converter {
 		conv.after = append(conv.after, hook)
 	}
 
+	conv.rebuildSnapshot()
 	return conv
 }
 
@@ -259,6 +306,7 @@ func (conv *Converter) ClearBefore() *Converter {
 
 	conv.before = nil
 
+	conv.rebuildSnapshot()
 	return conv
 }
 
@@ -269,6 +317,7 @@ func (conv *Converter) ClearAfter() *Converter {
 
 	conv.after = nil
 
+	conv.rebuildSnapshot()
 	return conv
 }
 
@@ -296,6 +345,7 @@ func (conv *Converter) AddRules(rules ...Rule) *Converter {
 		}
 	}
 
+	conv.rebuildSnapshot()
 	return conv
 }
 
@@ -307,6 +357,8 @@ func (conv *Converter) Keep(tags ...string) *Converter {
 	for _, tag := range tags {
 		conv.keep[tag] = struct{}{}
 	}
+
+	conv.rebuildSnapshot()
 	return conv
 }
 
@@ -317,6 +369,8 @@ func (conv *Converter) Remove(tags ...string) *Converter {
 	for _, tag := range tags {
 		conv.remove[tag] = struct{}{}
 	}
+
+	conv.rebuildSnapshot()
 	return conv
 }
 
@@ -364,18 +418,14 @@ var multipleNewLinesRegex = regexp.MustCompile(`[\n]{2,}`)
 // Convert returns the content from a goquery selection.
 // If you have a goquery document just pass in doc.Selection.
 func (conv *Converter) Convert(selec *goquery.Selection) string {
-	conv.mutex.RLock()
-	options := conv.options
-	l := len(conv.rules)
-	if l == 0 {
+	snap := conv.snap.Load()
+	options := snap.options
+	if len(snap.rules) == 0 {
 		log.Println("you have added no rules. either enable commonmark or add you own.")
 	}
-	before := conv.before
-	after := conv.after
-	conv.mutex.RUnlock()
 
 	// before hook
-	for _, hook := range before {
+	for _, hook := range snap.before {
 		hook(selec)
 	}
 
@@ -394,7 +444,7 @@ func (conv *Converter) Convert(selec *goquery.Selection) string {
 	}
 
 	// after hook
-	for _, hook := range after {
+	for _, hook := range snap.after {
 		markdown = hook(markdown)
 	}
 

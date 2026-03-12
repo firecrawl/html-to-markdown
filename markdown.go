@@ -218,9 +218,8 @@ func (conv *Converter) selecToMD(selec *goquery.Selection, opt *Options) Advance
 		nodeName := goquery.NodeName(s)
 
 		// Check if this element should be removed before processing
-		conv.mutex.RLock()
-		_, shouldRemove := conv.remove[nodeName]
-		conv.mutex.RUnlock()
+		snap := conv.snap.Load()
+		_, shouldRemove := snap.remove[nodeName]
 
 		if shouldRemove {
 			// Skip processing removed elements entirely

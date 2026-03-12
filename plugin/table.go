@@ -101,7 +101,7 @@ func Table() md.Plugin {
 			{ // TableRow
 				Filter: []string{"tr"},
 				Replacement: func(content string, selec *goquery.Selection, opt *md.Options) *string {
-					borderCells := ""
+					var borderBuilder strings.Builder
 
 					if isHeadingRow(selec) {
 						selec.Children().Each(func(i int, s *goquery.Selection) {
@@ -117,13 +117,13 @@ func Table() md.Plugin {
 								}
 							}
 
-							borderCells += getCellContent(border, s)
+							borderBuilder.WriteString(getCellContent(border, s))
 						})
 					}
 
 					text := "\n" + content
-					if borderCells != "" {
-						text += "\n" + borderCells
+					if borderBuilder.Len() > 0 {
+						text += "\n" + borderBuilder.String()
 					}
 					return &text
 				},
@@ -166,17 +166,17 @@ func isHeadingRow(s *goquery.Selection) bool {
 	if len(s.Nodes) == 0 || len(parent.Nodes) == 0 {
 		return false
 	}
-	
+
 	parentNode := parent.Nodes[0]
 	sNode := s.Nodes[0]
-	
+
 	// Find the first element child (skip text nodes)
 	for child := parentNode.FirstChild; child != nil; child = child.NextSibling {
 		if child.Type == html.ElementNode {
 			return child == sNode
 		}
 	}
-	
+
 	return false
 }
 func isFirstTbody(s *goquery.Selection) bool {
@@ -196,7 +196,7 @@ func getCellContent(content string, s *goquery.Selection) string {
 		// nested tables not found
 		content = newLineRe.ReplaceAllString(content, "<br>")
 	}
-	
+
 	// Optimize: Check if this is the first element child by comparing node pointers directly
 	// instead of linear search through all children
 	parent := s.Parent()
@@ -204,7 +204,7 @@ func getCellContent(content string, s *goquery.Selection) string {
 	if len(s.Nodes) > 0 && len(parent.Nodes) > 0 {
 		parentNode := parent.Nodes[0]
 		sNode := s.Nodes[0]
-		
+
 		// Find the first element child (skip text nodes)
 		for child := parentNode.FirstChild; child != nil; child = child.NextSibling {
 			if child.Type == html.ElementNode {
@@ -213,7 +213,7 @@ func getCellContent(content string, s *goquery.Selection) string {
 			}
 		}
 	}
-	
+
 	prefix := " "
 	if isFirst {
 		prefix = "| "

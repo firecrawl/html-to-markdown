@@ -17,9 +17,9 @@ import (
 
 var multipleSpacesR = regexp.MustCompile(`  +`)
 var markdownImageR = regexp.MustCompile(`^!\[([^\]]*)\]\((.+?)(?:\s+"[^"]*")?\)$`)
+var beginningOfLineR = regexp.MustCompile(`(?m)^`)
 
 func (c *Converter) InitializeCommonMarkRules() []Rule {
-	var multipleSpacesR = regexp.MustCompile(`  +`)
 
 	return []Rule{
 		{
@@ -392,8 +392,7 @@ func (c *Converter) InitializeCommonMarkRules() []Rule {
 
 				content = multipleNewLinesRegex.ReplaceAllString(content, "\n\n")
 
-				var beginningR = regexp.MustCompile(`(?m)^`)
-				content = beginningR.ReplaceAllString(content, "> ")
+				content = beginningOfLineR.ReplaceAllString(content, "> ")
 
 				text := "\n\n" + content + "\n\n"
 				return &text
