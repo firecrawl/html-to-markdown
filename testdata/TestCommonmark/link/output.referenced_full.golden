@@ -10,13 +10,9 @@
 
 [Broken Link][6]
 
-[First Text\
-![](http://example.com/xxx)\
-Second Text][7]
+[First Text ![](http://example.com/xxx) Second Text][7]
 
-- [First Text\
-  \
-  Second Text][8]
+- [First Text Second Text][8]
 
 [GitHub][9]
 
@@ -30,11 +26,7 @@ Before [close][14] After
 
 [DIW-Chef zum Grünen-Programm "Vermögenssteuer ist aus wirtschaftlicher Sicht klug"][16]
 
-[**Die App WDR aktuell begleitet Sie durch den Tag**\
-\
- Sie möchten eine App, die Sie so durch den Tag in NRW begleitet, dass Sie jederzeit mitreden können? Die App WDR aktuell bietet Ihnen dafür immer die passenden Nachrichten.\
-  \| \
- **mehr**][17]
+[**Die App WDR aktuell begleitet Sie durch den Tag**  Sie möchten eine App, die Sie so durch den Tag in NRW begleitet, dass Sie jederzeit mitreden können? Die App WDR aktuell bietet Ihnen dafür immer die passenden Nachrichten.   \|   **mehr**][17]
 
 [1]: http://simple.org/
 [2]: http://example.com/page.html

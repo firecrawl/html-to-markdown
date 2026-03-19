@@ -218,15 +218,19 @@ func TrimTrailingSpaces(text string) string {
 	return strings.Join(parts, "\n")
 }
 
-// The same as `multipleNewLinesRegex`, but applies to escaped new lines inside a link `\n\`
-var multipleNewLinesInLinkRegex = regexp.MustCompile(`(\n\\){1,}`) // `([\n\r\s]\\)`
+// multipleNewLinesRegex but for collapsing newlines in link content
+var multipleNewLinesRegexInLink = regexp.MustCompile(`\n{2,}`)
 
-// EscapeMultiLine deals with multiline content inside a link
+// EscapeMultiLine deals with multiline content inside a link by collapsing
+// newlines into spaces. Markdown links with backslash-escaped newlines (\\\n)
+// are technically valid CommonMark but poorly supported by many renderers,
+// so we flatten the content to a single line instead.
 func EscapeMultiLine(content string) string {
 	content = strings.TrimSpace(content)
-	content = strings.Replace(content, "\n", `\`+"\n", -1)
-
-	content = multipleNewLinesInLinkRegex.ReplaceAllString(content, "\n\\")
+	// First collapse multiple newlines into a single one
+	content = multipleNewLinesRegexInLink.ReplaceAllString(content, "\n")
+	// Then replace remaining single newlines with a space
+	content = strings.Replace(content, "\n", " ", -1)
 
 	return content
 }

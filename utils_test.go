@@ -252,7 +252,7 @@ func TestEscapeMultiLine(t *testing.T) {
 		Expect string
 	}{
 		{
-			Name: "escape new lines",
+			Name: "collapse newlines to spaces",
 			Text: `line1
 line2
 
@@ -261,18 +261,25 @@ line3
 
 
 
-
-
-
-
-
 line4`,
-			Expect: `line1\
-line2\
-\
-line3\
-\
-line4`,
+			Expect: `line1 line2 line3 line4`,
+		},
+		{
+			Name: "single newline becomes space",
+			Text: `hello
+world`,
+			Expect: `hello world`,
+		},
+		{
+			Name:   "no newlines unchanged",
+			Text:   `simple text`,
+			Expect: `simple text`,
+		},
+		{
+			Name: "trims whitespace",
+			Text: `  padded  
+`,
+			Expect: `padded`,
 		},
 	}
 
