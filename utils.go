@@ -38,6 +38,36 @@ func getName(node *html.Node) string {
 	return goquery.NodeName(selec)
 }
 
+// isInlineContentNode reports whether a sibling node renders as inline content
+// on the same line as surrounding text (an inline element or a non-empty text
+// node). Used to decide whether whitespace between siblings is significant.
+func isInlineContentNode(node *html.Node) bool {
+	if node == nil {
+		return false
+	}
+	switch node.Type {
+	case html.TextNode:
+		return strings.TrimSpace(node.Data) != ""
+	case html.ElementNode:
+		return IsInlineElement(getName(node))
+	}
+	return false
+}
+
+// isSignificantInlineWhitespace reports whether a whitespace-only text node
+// carries a significant space, i.e. it sits between two pieces of inline
+// content. Per the HTML whitespace model, such whitespace collapses to a single
+// space (e.g. `<span>a</span> <span>b</span>` renders as "a b") rather than
+// being removed. Whitespace at a block boundary (next to a block element, or at
+// the start/end of its parent) is not significant and should be dropped.
+func isSignificantInlineWhitespace(selec *goquery.Selection) bool {
+	if len(selec.Nodes) == 0 {
+		return false
+	}
+	node := selec.Nodes[0]
+	return isInlineContentNode(node.PrevSibling) && isInlineContentNode(node.NextSibling)
+}
+
 // What elements automatically trim their content?
 // Don't add another space if the other element is going to add a
 // space already.
