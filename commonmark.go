@@ -87,6 +87,14 @@ func (c *Converter) InitializeCommonMarkRules() []Rule {
 			Replacement: func(content string, selec *goquery.Selection, opt *Options) *string {
 				text := selec.Text()
 				if trimmed := strings.TrimSpace(text); trimmed == "" {
+					// Whitespace between two inline elements is significant: it
+					// collapses to a single space rather than being removed, so
+					// that e.g. `<span>a</span> <span>b</span>` does not glue
+					// into "ab". Whitespace at a block boundary is dropped as
+					// before. See issue #3583.
+					if isSignificantInlineWhitespace(selec) {
+						return String(" ")
+					}
 					return String("")
 				}
 				text = tabR.ReplaceAllString(text, " ")
